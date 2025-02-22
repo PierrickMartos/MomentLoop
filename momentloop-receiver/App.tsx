@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, Text, ScrollView, Image, Platform, useWindowDimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { StyleSheet, View, Text, FlatList, Image, Platform, useWindowDimensions, TouchableOpacity, Alert, ActivityIndicator, ViewabilityConfig, ViewToken } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
@@ -22,20 +22,54 @@ interface MediaNotification {
   timestamp: Date;
 }
 
-const VideoPlayer = ({ uri, style }: { uri: string; style: any }) => {
+const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVisible: boolean }) => {
   const videoRef = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [replayCount, setReplayCount] = useState(0);
+  const [hasReachedLimit, setHasReachedLimit] = useState(false);
+  const MAX_REPLAYS = 5;
 
   useEffect(() => {
     // Reset states when URI changes
     setIsLoading(true);
     setError(null);
+    setReplayCount(0);
+    setHasReachedLimit(false);
   }, [uri]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isVisible) {
+        // Reset counter when video becomes visible again
+        if (!isVisible) {
+          setReplayCount(0);
+          setHasReachedLimit(false);
+        }
+        if (!hasReachedLimit) {
+          videoRef.current.playAsync();
+        }
+      } else {
+        videoRef.current.pauseAsync();
+      }
+    }
+  }, [isVisible, hasReachedLimit]);
 
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsLoading(false);
+
+      // Track video completion
+      if (status.didJustFinish) {
+        const newCount = replayCount + 1;
+        setReplayCount(newCount);
+
+        if (newCount >= MAX_REPLAYS) {
+          setHasReachedLimit(true);
+          videoRef.current?.pauseAsync();
+        }
+      }
     }
   };
 
@@ -45,18 +79,26 @@ const VideoPlayer = ({ uri, style }: { uri: string; style: any }) => {
     setIsLoading(false);
   };
 
+  const handleReplay = async () => {
+    if (videoRef.current) {
+      setReplayCount(0);
+      setHasReachedLimit(false);
+      await videoRef.current.replayAsync();
+    }
+  };
+
   return (
-    <View style={styles.videoWrapper}>
+    <View style={[styles.videoWrapper, { width: screenWidth, height: screenHeight }]}>
       <Video
         ref={videoRef}
         source={{ uri }}
-        style={[style, styles.video]}
+        style={[styles.video, { width: screenWidth, height: screenHeight }]}
         useNativeControls
         resizeMode={ResizeMode.CONTAIN}
-        isLooping={false}
+        isLooping={!hasReachedLimit}
         onPlaybackStatusUpdate={onPlaybackStatusUpdate}
         onError={() => onError('Video playback error')}
-        shouldPlay={false}
+        shouldPlay={isVisible && !hasReachedLimit}
       />
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -69,16 +111,39 @@ const VideoPlayer = ({ uri, style }: { uri: string; style: any }) => {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
+      {hasReachedLimit && (
+        <View style={styles.replayLimitContainer}>
+          <Text style={styles.replayLimitText}>Video has played {MAX_REPLAYS} times</Text>
+          <TouchableOpacity style={styles.replayButton} onPress={handleReplay}>
+            <Text style={styles.replayButtonText}>↺ Replay</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
 
 export default function App() {
-  const { width: windowWidth } = useWindowDimensions();
-  const isTablet = windowWidth >= 768; // Common tablet breakpoint
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [visibleItemIndex, setVisibleItemIndex] = useState<number>(0);
+  const [dimensions, setDimensions] = useState({ width: windowWidth, height: windowHeight });
 
   const [notifications, setNotifications] = useState<MediaNotification[]>([]);
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+
+  const viewabilityConfig: ViewabilityConfig = {
+    itemVisiblePercentThreshold: 50
+  };
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0) {
+      setVisibleItemIndex(viewableItems[0].index ?? 0);
+    }
+  }, []);
+
+  const viewabilityConfigCallbackPairs = useRef([
+    { viewabilityConfig, onViewableItemsChanged },
+  ]);
 
   useEffect(() => {
     registerForPushNotifications();
@@ -151,7 +216,7 @@ export default function App() {
       },
       {
         type: 'video',
-        url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        url: "https://static.vecteezy.com/system/resources/previews/024/493/869/mp4/5-seconds-countdown-timer-animation-neon-glowing-countdown-number-free-video.mp4"
       }
     ];
 
@@ -165,78 +230,89 @@ export default function App() {
     };
 
     setNotifications(prev => [newNotification, ...prev]);
-    Alert.alert('Test Notification', `Added new ${randomMedia.type}`);
   };
 
-  const renderMediaItem = (item: MediaNotification) => {
-    const mediaWidth = windowWidth;
+  // Update dimensions when window size changes
+  useEffect(() => {
+    setDimensions({ width: windowWidth, height: windowHeight });
+  }, [windowWidth, windowHeight]);
+
+  const renderMediaItem = ({ item, index }: { item: MediaNotification; index: number }) => {
+    const isVisible = index === visibleItemIndex;
 
     return (
       <View
-        key={item.id}
         style={[
           styles.mediaContainer,
           {
-            width: mediaWidth,
-            margin: 0,
+            width: dimensions.width,
+            height: dimensions.height,
           }
         ]}
       >
-        <Text style={styles.timestamp}>
-          {item.timestamp.toLocaleString()}
-        </Text>
         {item.type === 'image' ? (
-          <Image
-            source={{ uri: item.url }}
-            style={[styles.media, { height: mediaWidth * 0.75 }]}
-            resizeMode="contain"
-          />
+          <View style={styles.fullScreenMedia}>
+            <Image
+              source={{ uri: item.url }}
+              style={[
+                StyleSheet.absoluteFill,
+                styles.mediaContent
+              ]}
+              resizeMode="contain"
+            />
+          </View>
         ) : (
-          <VideoPlayer
-            uri={item.url}
-            style={[styles.media, { height: mediaWidth * 0.75 }]}
-          />
+          <View style={styles.fullScreenMedia}>
+            <VideoPlayer
+              uri={item.url}
+              style={[
+                StyleSheet.absoluteFill,
+                styles.mediaContent
+              ]}
+              isVisible={isVisible}
+            />
+          </View>
         )}
       </View>
     );
   };
 
   return (
-    <View style={[
-      styles.container,
-      { paddingHorizontal: isTablet ? 20 : 10 }
-    ]}>
-      <StatusBar style="auto" />
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-      {expoPushToken ? (
-        <View style={styles.tokenContainer}>
+      <View style={styles.tokenOverlay}>
+        {expoPushToken ? (
           <TouchableOpacity
-            style={styles.copyButton}
+            style={styles.button}
             onPress={copyTokenToClipboard}
           >
             <Text style={styles.copyButtonText}>Copy Token</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <Text style={styles.tokenText}>Waiting for notification permission...</Text>
-      )}
+        ) : (
+          <Text style={styles.tokenText}>Waiting for notification permission...</Text>
+        )}
 
-      <TouchableOpacity
-        style={[styles.button, styles.testButton]}
-        onPress={simulateNotification}
-      >
-        <Text style={styles.buttonText}>Test: Add Random Media</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.testButton]}
+          onPress={simulateNotification}
+        >
+          <Text style={styles.buttonText}>Test: Add Random Media</Text>
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView
+      <FlatList
+        data={notifications}
+        renderItem={renderMediaItem}
+        keyExtractor={item => item.id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
         style={styles.notificationList}
-        contentContainerStyle={[
-          styles.mediaGrid,
-          { flexDirection: isTablet ? 'row' : 'column', flexWrap: 'wrap' }
-        ]}
-      >
-        {notifications.map(renderMediaItem)}
-      </ScrollView>
+        onLayout={() => {
+          setDimensions({ width: windowWidth, height: windowHeight });
+        }}
+      />
     </View>
   );
 }
@@ -244,17 +320,20 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    backgroundColor: '#000',
   },
-  header: {
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
+  tokenOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 20,
+    width: 200,
   },
   tokenContainer: {
     padding: 15,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
@@ -263,14 +342,14 @@ const styles = StyleSheet.create({
   tokenText: {
     textAlign: 'center',
     marginBottom: 10,
-    color: '#666',
+    color: '#fff',
     fontWeight: 'bold',
   },
   tokenValue: {
     fontSize: 14,
-    color: '#333',
+    color: '#fff',
     textAlign: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 10,
     borderRadius: 8,
     width: '100%',
@@ -278,11 +357,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   copyButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    backgroundColor: 'rgba(0, 122, 255, 0.8)',
     borderRadius: 8,
-    marginTop: 5,
+    marginTop: 0,
   },
   copyButtonText: {
     color: '#fff',
@@ -292,33 +369,62 @@ const styles = StyleSheet.create({
   notificationList: {
     flex: 1,
   },
-  mediaGrid: {
-    justifyContent: 'space-between',
-  },
   mediaContainer: {
-    borderRadius: 15,
-    overflow: 'hidden',
-    marginBottom: 15,
-    elevation: 3,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  timestamp: {
-    color: '#666',
-    marginBottom: 10,
-    fontSize: 14,
-  },
-  media: {
-    width: '100%',
-    borderRadius: 0,
-  },
-  videoWrapper: {
+  fullScreenMedia: {
+    flex: 1,
+    backgroundColor: '#000',
     position: 'relative',
     width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mediaContent: {
+    width: '100%',
+    height: '100%',
+  },
+  mediaOverlay: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 10,
+  },
+  timestamp: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  button: {
+    backgroundColor: 'rgba(0, 122, 255, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  testButton: {
+    backgroundColor: 'rgba(52, 199, 89, 0.8)', // Semi-transparent green
+  },
+  videoWrapper: {
+    flex: 1,
     backgroundColor: '#000',
-    borderRadius: 0,
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   video: {
-    borderRadius: 0,
+    flex: 1,
+    backgroundColor: '#000',
   },
   loadingContainer: {
     position: 'absolute',
@@ -328,7 +434,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   loadingText: {
     color: '#fff',
@@ -343,26 +449,38 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   errorText: {
     color: '#fff',
     fontSize: 14,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+  replayLimitContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  buttonText: {
+  replayLimitText: {
     color: '#fff',
-    fontWeight: 'bold',
     fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
-  testButton: {
-    backgroundColor: '#34C759', // Green color for test button
+  replayButton: {
+    backgroundColor: 'rgba(0, 122, 255, 0.8)',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  replayButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
