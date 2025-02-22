@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Image, Platform, useWindowDimensions, TouchableOpacity, Alert } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, View, Text, ScrollView, Image, Platform, useWindowDimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
@@ -21,6 +21,57 @@ interface MediaNotification {
   url: string;
   timestamp: Date;
 }
+
+const VideoPlayer = ({ uri, style }: { uri: string; style: any }) => {
+  const videoRef = useRef<Video>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Reset states when URI changes
+    setIsLoading(true);
+    setError(null);
+  }, [uri]);
+
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setIsLoading(false);
+    }
+  };
+
+  const onError = (error: string) => {
+    console.error('Video error:', error);
+    setError('Failed to load video');
+    setIsLoading(false);
+  };
+
+  return (
+    <View style={styles.videoWrapper}>
+      <Video
+        ref={videoRef}
+        source={{ uri }}
+        style={[style, styles.video]}
+        useNativeControls
+        resizeMode={ResizeMode.CONTAIN}
+        isLooping={false}
+        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+        onError={() => onError('Video playback error')}
+        shouldPlay={false}
+      />
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading video...</Text>
+        </View>
+      )}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default function App() {
   const { width: windowWidth } = useWindowDimensions();
@@ -92,8 +143,33 @@ export default function App() {
     }
   };
 
+  const simulateNotification = () => {
+    const testMedia: Array<{type: 'image' | 'video', url: string}> = [
+      {
+        type: 'image',
+        url: 'https://picsum.photos/800/600', // Random image from Lorem Picsum
+      },
+      {
+        type: 'video',
+        url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      }
+    ];
+
+    const randomMedia = testMedia[Math.floor(Math.random() * testMedia.length)];
+
+    const newNotification: MediaNotification = {
+      id: Date.now().toString(),
+      type: randomMedia.type,
+      url: randomMedia.url,
+      timestamp: new Date(),
+    };
+
+    setNotifications(prev => [newNotification, ...prev]);
+    Alert.alert('Test Notification', `Added new ${randomMedia.type}`);
+  };
+
   const renderMediaItem = (item: MediaNotification) => {
-    const mediaWidth = isTablet ? (windowWidth - 40) / 2 : windowWidth - 20; // 2 columns for tablet
+    const mediaWidth = windowWidth;
 
     return (
       <View
@@ -102,7 +178,7 @@ export default function App() {
           styles.mediaContainer,
           {
             width: mediaWidth,
-            margin: 10,
+            margin: 0,
           }
         ]}
       >
@@ -116,12 +192,9 @@ export default function App() {
             resizeMode="contain"
           />
         ) : (
-          <Video
-            source={{ uri: item.url }}
+          <VideoPlayer
+            uri={item.url}
             style={[styles.media, { height: mediaWidth * 0.75 }]}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping={false}
           />
         )}
       </View>
@@ -134,17 +207,9 @@ export default function App() {
       { paddingHorizontal: isTablet ? 20 : 10 }
     ]}>
       <StatusBar style="auto" />
-      <Text style={[
-        styles.header,
-        { fontSize: isTablet ? 32 : 24 }
-      ]}>MomentLoop Receiver</Text>
 
       {expoPushToken ? (
         <View style={styles.tokenContainer}>
-          <Text style={[styles.tokenText, { fontSize: isTablet ? 18 : 16 }]}>Your Receiver Token:</Text>
-          <Text style={styles.tokenValue} numberOfLines={2} ellipsizeMode="middle">
-            {expoPushToken}
-          </Text>
           <TouchableOpacity
             style={styles.copyButton}
             onPress={copyTokenToClipboard}
@@ -155,6 +220,13 @@ export default function App() {
       ) : (
         <Text style={styles.tokenText}>Waiting for notification permission...</Text>
       )}
+
+      <TouchableOpacity
+        style={[styles.button, styles.testButton]}
+        onPress={simulateNotification}
+      >
+        <Text style={styles.buttonText}>Test: Add Random Media</Text>
+      </TouchableOpacity>
 
       <ScrollView
         style={styles.notificationList}
@@ -221,22 +293,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mediaGrid: {
-    padding: 5,
     justifyContent: 'space-between',
   },
   mediaContainer: {
     borderRadius: 15,
     overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
-    padding: 15,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
     elevation: 3,
   },
   timestamp: {
@@ -246,6 +308,61 @@ const styles = StyleSheet.create({
   },
   media: {
     width: '100%',
-    borderRadius: 10,
+    borderRadius: 0,
+  },
+  videoWrapper: {
+    position: 'relative',
+    width: '100%',
+    backgroundColor: '#000',
+    borderRadius: 0,
+    overflow: 'hidden',
+  },
+  video: {
+    borderRadius: 0,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 14,
+  },
+  errorContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  testButton: {
+    backgroundColor: '#34C759', // Green color for test button
   },
 });

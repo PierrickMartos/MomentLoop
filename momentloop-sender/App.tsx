@@ -61,7 +61,7 @@ export default function App() {
         body: `You received a new ${selectedMedia.type}!`,
         data: {
           mediaType: selectedMedia.type,
-          mediaUrl: selectedMedia.uri, // In real app, this would be a remote URL
+          //mediaUrl: selectedMedia.uri, // In real app, this would be a remote URL
         },
       };
 
@@ -86,7 +86,6 @@ export default function App() {
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
-      <Text style={styles.header}>MomentLoop Sender</Text>
 
       <TextInput
         style={styles.input}

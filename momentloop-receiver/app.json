@@ -24,7 +24,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#e8c79e"
       },
-      "package": "com.momentloop.receiver"
+      "package": "com.momentloop.receiver",
+      "permissions": [
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,7 +42,14 @@
           "icon": "./assets/notification-icon.png",
           "color": "#e8c79e"
         }
-      ]
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ],
+      "react-native-cloud-storage"
     ],
     "extra": {
       "eas": {
