@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, Platform, TextInput } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
+import { uploadToSynology } from './utils/synologyUploader';
 
 export default function App() {
   const [selectedMedia, setSelectedMedia] = useState<{
     uri: string;
     type: 'image' | 'video';
+    fileName?: string;
   } | null>(null);
   const [receiverToken, setReceiverToken] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const pickMedia = async () => {
     // Request permissions
@@ -29,9 +32,13 @@ export default function App() {
 
       if (!result.canceled) {
         const asset = result.assets[0];
+        // Get file name from URI
+        const fileName = asset.uri.split('/').pop() || `file-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
+
         setSelectedMedia({
           uri: asset.uri,
           type: asset.type === 'video' ? 'video' : 'image',
+          fileName: fileName,
         });
       }
     } catch (error) {
@@ -51,9 +58,20 @@ export default function App() {
       return;
     }
 
+    setIsUploading(true);
+
     try {
-      // In a real app, you would upload the media to a server here
-      // and get back a URL. For this demo, we'll just send the local URI
+      // Upload to Synology
+      const uploadResult = await uploadToSynology(
+        selectedMedia.uri,
+        selectedMedia.fileName || `file-${Date.now()}.${selectedMedia.type === 'video' ? 'mp4' : 'jpg'}`
+      );
+
+      if (!uploadResult.success || !uploadResult.url) {
+        throw new Error(uploadResult.error || 'Failed to upload file');
+      }
+
+      // Send notification with the Synology URL
       const message = {
         to: receiverToken,
         sound: 'default',
@@ -61,7 +79,7 @@ export default function App() {
         body: `You received a new ${selectedMedia.type}!`,
         data: {
           mediaType: selectedMedia.type,
-          //mediaUrl: selectedMedia.uri, // In real app, this would be a remote URL
+          mediaUrl: uploadResult.url,
         },
       };
 
@@ -75,11 +93,13 @@ export default function App() {
         body: JSON.stringify(message),
       });
 
-      Alert.alert('Success', 'Media sent successfully!');
+      Alert.alert('Success', 'Media uploaded and sent successfully!');
       setSelectedMedia(null);
     } catch (error) {
-      console.error('Error sending notification:', error);
-      Alert.alert('Error', 'Failed to send media');
+      console.error('Error sending media:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to send media');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -96,7 +116,11 @@ export default function App() {
         numberOfLines={2}
       />
 
-      <TouchableOpacity style={styles.button} onPress={pickMedia}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={pickMedia}
+        disabled={isUploading}
+      >
         <Text style={styles.buttonText}>Pick Media</Text>
       </TouchableOpacity>
 
@@ -112,11 +136,22 @@ export default function App() {
       )}
 
       <TouchableOpacity
-        style={[styles.button, styles.sendButton]}
+        style={[
+          styles.button,
+          styles.sendButton,
+          (isUploading || !selectedMedia) && styles.disabledButton
+        ]}
         onPress={sendNotification}
-        disabled={!selectedMedia}
+        disabled={isUploading || !selectedMedia}
       >
-        <Text style={styles.buttonText}>Send to Receiver</Text>
+        {isUploading ? (
+          <View style={styles.uploadingContainer}>
+            <ActivityIndicator color="#fff" />
+            <Text style={[styles.buttonText, styles.uploadingText]}>Uploading...</Text>
+          </View>
+        ) : (
+          <Text style={styles.buttonText}>Send to Receiver</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -174,5 +209,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontSize: 16,
     textAlignVertical: 'top',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingText: {
+    marginLeft: 10,
   },
 });

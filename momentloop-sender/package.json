@@ -9,14 +9,15 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "axios": "^1.7.9",
     "expo": "~52.0.37",
-    "expo-status-bar": "~2.0.1",
-    "react": "18.3.1",
-    "react-native": "0.76.7",
-    "expo-notifications": "~0.29.13",
+    "expo-file-system": "~18.0.11",
     "expo-image-picker": "~16.0.6",
     "expo-media-library": "~17.0.6",
-    "expo-file-system": "~18.0.11"
+    "expo-notifications": "~0.29.13",
+    "expo-status-bar": "~2.0.1",
+    "react": "18.3.1",
+    "react-native": "0.76.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
