@@ -1,28 +1,54 @@
 {
   "expo": {
-    "name": "Moment Loop Receiver",
+    "name": "MomentLoop Receiver",
     "slug": "momentloop-receiver",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#e8c79e"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.momentloop.receiver"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+        "backgroundColor": "#e8c79e"
+      },
+      "package": "com.momentloop.receiver"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#e8c79e"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "271b36e1-54be-45b1-85ba-34df184b7621"
+      }
+    },
+    "owner": "pierrickm",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/development"
     }
   }
 }

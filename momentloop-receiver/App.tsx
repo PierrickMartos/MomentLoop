@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Image, Platform, useWindowDimensions, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Image, Platform, useWindowDimensions, TouchableOpacity, Alert } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
+import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 
 // Configure notifications to show when app is foregrounded
 Notifications.setNotificationHandler({
@@ -63,8 +65,11 @@ export default function App() {
         throw new Error('Permission not granted!');
       }
 
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      setExpoPushToken(token);
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || 'development';
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: projectId
+      });
+      setExpoPushToken(token.data);
 
       // On Android, we need to set up a notification channel
       if (Platform.OS === 'android') {
@@ -77,6 +82,13 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error getting push token:', error);
+    }
+  };
+
+  const copyTokenToClipboard = async () => {
+    if (expoPushToken) {
+      await Clipboard.setStringAsync(expoPushToken);
+      Alert.alert('Success', 'Token copied to clipboard!');
     }
   };
 
@@ -129,8 +141,16 @@ export default function App() {
 
       {expoPushToken ? (
         <View style={styles.tokenContainer}>
-          <Text style={[styles.tokenText, { fontSize: isTablet ? 18 : 16 }]}>Ready to receive media!</Text>
-          <Text style={styles.tokenValue}>{expoPushToken}</Text>
+          <Text style={[styles.tokenText, { fontSize: isTablet ? 18 : 16 }]}>Your Receiver Token:</Text>
+          <Text style={styles.tokenValue} numberOfLines={2} ellipsizeMode="middle">
+            {expoPushToken}
+          </Text>
+          <TouchableOpacity
+            style={styles.copyButton}
+            onPress={copyTokenToClipboard}
+          >
+            <Text style={styles.copyButtonText}>Copy Token</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <Text style={styles.tokenText}>Waiting for notification permission...</Text>
@@ -166,16 +186,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
+    width: '100%',
   },
   tokenText: {
     textAlign: 'center',
     marginBottom: 10,
     color: '#666',
+    fontWeight: 'bold',
   },
   tokenValue: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 14,
+    color: '#333',
     textAlign: 'center',
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 8,
+    width: '100%',
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  copyButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 5,
+  },
+  copyButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   notificationList: {
     flex: 1,
