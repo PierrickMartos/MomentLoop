@@ -39,10 +39,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "development"
+        "projectId": "ef34b5b4-5477-4b37-ae99-6156342a0523"
       }
     },
-    "owner": "momentloop",
+    "owner": "pierrickm",
     "runtimeVersion": {
       "policy": "appVersion"
     },

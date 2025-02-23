@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, FlatList, Image, Platform, useWindowDimensions, TouchableOpacity, Alert, ActivityIndicator, ViewabilityConfig, ViewToken } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
@@ -8,12 +8,43 @@ import Constants from 'expo-constants';
 
 // Configure notifications to show when app is foregrounded
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async () => {
+    console.log('Handling foreground notification');
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
+
+// Initialize notification sound
+const loadSound = async () => {
+  try {
+    console.log('Loading notification sound...');
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+    });
+
+    // Explicitly specify the asset module
+    const soundAsset = require('./assets/notification.mp3');
+    console.log('Sound asset loaded:', soundAsset);
+
+    const { sound } = await Audio.Sound.createAsync(
+      soundAsset,
+      { shouldPlay: false }
+    );
+    console.log('Sound created successfully');
+    return sound;
+  } catch (error) {
+    console.error('Error loading sound:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
+    return null;
+  }
+};
 
 interface MediaNotification {
   id: string;
@@ -31,6 +62,8 @@ const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVis
   const [hasReachedLimit, setHasReachedLimit] = useState(false);
   const MAX_REPLAYS = 5;
 
+  console.log('Video source config:', { uri });
+
   useEffect(() => {
     // Reset states when URI changes
     setIsLoading(true);
@@ -42,11 +75,6 @@ const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVis
   useEffect(() => {
     if (videoRef.current) {
       if (isVisible) {
-        // Reset counter when video becomes visible again
-        if (!isVisible) {
-          setReplayCount(0);
-          setHasReachedLimit(false);
-        }
         if (!hasReachedLimit) {
           videoRef.current.playAsync();
         }
@@ -75,6 +103,7 @@ const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVis
 
   const onError = (error: string) => {
     console.error('Video error:', error);
+    console.error('Failed URL:', uri);
     setError('Failed to load video');
     setIsLoading(false);
   };
@@ -130,6 +159,8 @@ export default function App() {
 
   const [notifications, setNotifications] = useState<MediaNotification[]>([]);
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  const [notificationSound, setNotificationSound] = useState<Audio.Sound | null>(null);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(true);
 
   const viewabilityConfig: ViewabilityConfig = {
     itemVisiblePercentThreshold: 50
@@ -148,56 +179,148 @@ export default function App() {
   useEffect(() => {
     registerForPushNotifications();
 
-    // Listen for incoming notifications
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data;
-      if (data.mediaUrl && data.mediaType) {
-        const newNotification: MediaNotification = {
-          id: notification.request.identifier,
-          type: data.mediaType,
-          url: data.mediaUrl,
-          timestamp: new Date(),
-        };
-        setNotifications(prev => [newNotification, ...prev]);
+    // Listen for incoming notifications when app is foregrounded
+    const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Received notification in foreground:', JSON.stringify(notification, null, 2));
+      processNotification(notification);
+    });
+
+    // Handle notifications that are received in the background and clicked
+    const backgroundSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Received notification response:', JSON.stringify(response, null, 2));
+      processNotification(response.notification);
+    });
+
+    // Get any initial notification that launched the app
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) {
+        console.log('Initial notification:', JSON.stringify(response, null, 2));
+        processNotification(response.notification);
       }
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
+      foregroundSubscription.remove();
+      backgroundSubscription.remove();
     };
   }, []);
 
+  // Load sound on app start
+  useEffect(() => {
+    loadSound().then(sound => {
+      setNotificationSound(sound);
+    });
+
+    return () => {
+      if (notificationSound) {
+        notificationSound.unloadAsync();
+      }
+    };
+  }, []);
+
+  const playNotificationSound = async () => {
+    try {
+      if (notificationSound) {
+        await notificationSound.stopAsync();
+        await notificationSound.playFromPositionAsync(0);
+      }
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  };
+
+  const processNotification = (notification: Notifications.Notification) => {
+    console.log('Processing notification:', JSON.stringify(notification, null, 2));
+    const data = notification.request.content.data;
+
+    if (!data.mediaUrl || !data.mediaType) {
+      console.error('Invalid notification data:', data);
+      Alert.alert('Error', 'Received invalid media data');
+      return;
+    }
+
+    // Generate a unique ID using timestamp and random number
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const newNotification: MediaNotification = {
+      id: uniqueId,
+      type: data.mediaType,
+      url: data.mediaUrl,
+      timestamp: new Date(),
+    };
+
+    console.log('Adding new notification:', newNotification);
+
+    // Check for duplicate URLs to prevent duplicate notifications
+    setNotifications(prev => {
+      const isDuplicate = prev.some(n => n.url === data.mediaUrl);
+      if (isDuplicate) {
+        console.log('Duplicate notification detected, skipping...');
+        return prev;
+      }
+      return [newNotification, ...prev];
+    });
+
+    // Play sound after ensuring notification is unique
+    playNotificationSound();
+  };
+
   const registerForPushNotifications = async () => {
     try {
+      console.log('Starting push notification registration...');
+
+      // Check if we're running in an Expo client
+      if (!Constants.expoConfig) {
+        throw new Error('This app must run in Expo client');
+      }
+
+      console.log('Requesting notification permissions...');
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
+      console.log('Existing notification status:', existingStatus);
 
       if (existingStatus !== 'granted') {
+        console.log('Permission not granted, requesting...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
+        console.log('New permission status:', status);
       }
 
       if (finalStatus !== 'granted') {
-        throw new Error('Permission not granted!');
+        throw new Error('Failed to get push token for push notification!');
       }
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId || 'development';
-      const token = await Notifications.getExpoPushTokenAsync({
+      console.log('Getting push token...');
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (!projectId) {
+        throw new Error('Project ID not found in config');
+      }
+
+      console.log('Using project ID:', projectId);
+      const tokenData = await Notifications.getExpoPushTokenAsync({
         projectId: projectId
       });
-      setExpoPushToken(token.data);
+
+      console.log('Push token received:', tokenData.data);
+      setExpoPushToken(tokenData.data);
 
       // On Android, we need to set up a notification channel
       if (Platform.OS === 'android') {
+        console.log('Setting up Android notification channel...');
         await Notifications.setNotificationChannelAsync('default', {
           name: 'default',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF231F7C',
         });
+        console.log('Android notification channel set up successfully');
       }
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.error('Error setting up notifications:', error);
+      Alert.alert(
+        'Notification Setup Error',
+        `Failed to set up notifications: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease ensure:\n1. Notifications are enabled in device settings\n2. The app has internet connectivity\n3. You're running in Expo client`
+      );
     }
   };
 
@@ -222,14 +345,18 @@ export default function App() {
 
     const randomMedia = testMedia[Math.floor(Math.random() * testMedia.length)];
 
+    // Generate a unique ID using timestamp and random number
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     const newNotification: MediaNotification = {
-      id: Date.now().toString(),
+      id: uniqueId,
       type: randomMedia.type,
       url: randomMedia.url,
       timestamp: new Date(),
     };
 
     setNotifications(prev => [newNotification, ...prev]);
+    playNotificationSound();
   };
 
   // Update dimensions when window size changes
@@ -239,6 +366,13 @@ export default function App() {
 
   const renderMediaItem = ({ item, index }: { item: MediaNotification; index: number }) => {
     const isVisible = index === visibleItemIndex;
+    const [isImageLoading, setIsImageLoading] = useState(true);
+
+    console.log('Rendering media item:', {
+      type: item.type,
+      url: item.url,
+      isHttps: item.url.startsWith('https')
+    });
 
     return (
       <View
@@ -252,13 +386,69 @@ export default function App() {
       >
         {item.type === 'image' ? (
           <View style={styles.fullScreenMedia}>
+            {isImageLoading && (
+              <View style={[
+                styles.loadingContainer,
+                { opacity: 0.7 }
+              ]}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.loadingText}>Loading image...</Text>
+              </View>
+            )}
             <Image
-              source={{ uri: item.url }}
+              source={{
+                uri: item.url,
+                cache: 'reload',
+                headers: {
+                  'Cache-Control': 'no-cache',
+                  'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8',
+                  'Origin': '*'
+                }
+              }}
               style={[
                 StyleSheet.absoluteFill,
-                styles.mediaContent
+                styles.mediaContent,
+                { opacity: isImageLoading ? 0 : 1 }
               ]}
               resizeMode="contain"
+              onLoadStart={() => {
+                console.log('Image loading started:', {
+                  url: item.url,
+                  timestamp: new Date().toISOString()
+                });
+                // Try to prefetch the image
+                Image.prefetch(item.url).then(
+                  () => console.log('Image prefetch success'),
+                  (error) => console.log('Image prefetch failed:', error)
+                );
+                setIsImageLoading(true);
+              }}
+              onError={(error) => {
+                console.error('Image loading error:', {
+                  url: item.url,
+                  error: error.nativeEvent.error,
+                  timestamp: new Date().toISOString()
+                });
+                setIsImageLoading(false);
+
+                // Try to load the image with a different protocol
+                if (item.url.startsWith('https://')) {
+                  const httpUrl = item.url.replace('https://', 'http://');
+                  console.log('Retrying with HTTP:', httpUrl);
+                  setNotifications(prev =>
+                    prev.map(n =>
+                      n.id === item.id ? { ...n, url: httpUrl } : n
+                    )
+                  );
+                }
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', {
+                  url: item.url,
+                  timestamp: new Date().toISOString()
+                });
+                setIsImageLoading(false);
+              }}
             />
           </View>
         ) : (
@@ -281,25 +471,47 @@ export default function App() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.tokenOverlay}>
-        {expoPushToken ? (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={copyTokenToClipboard}
-          >
-            <Text style={styles.copyButtonText}>Copy Token</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.tokenText}>Waiting for notification permission...</Text>
-        )}
+      {isOverlayVisible && (
+        <View style={styles.tokenOverlay}>
+          {expoPushToken ? (
+            <>
+              <View style={styles.tokenContainer}>
+                <Text style={styles.tokenText}>Your Token:</Text>
+                <Text style={styles.tokenValue} numberOfLines={3} ellipsizeMode="middle">
+                  {expoPushToken}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={copyTokenToClipboard}
+              >
+                <Text style={styles.copyButtonText}>Copy Token</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.tokenText}>Waiting for notification permission...</Text>
+          )}
 
-        <TouchableOpacity
-          style={[styles.button, styles.testButton]}
-          onPress={simulateNotification}
-        >
-          <Text style={styles.buttonText}>Test: Add Random Media</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.button, styles.testButton]}
+            onPress={simulateNotification}
+          >
+            <Text style={styles.buttonText}>Test: Add Random Media</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[
+          styles.toggleButton,
+          !isOverlayVisible && styles.toggleButtonExpanded
+        ]}
+        onPress={() => setIsOverlayVisible(!isOverlayVisible)}
+      >
+        <Text style={styles.toggleButtonText}>
+          {isOverlayVisible ? '▼ Hide Controls' : '▲ Show Controls'}
+        </Text>
+      </TouchableOpacity>
 
       <FlatList
         data={notifications}
@@ -330,6 +542,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingHorizontal: 20,
     width: 200,
+    alignItems: 'center',
   },
   tokenContainer: {
     padding: 15,
@@ -481,6 +694,26 @@ const styles = StyleSheet.create({
   replayButtonText: {
     color: '#fff',
     fontSize: 24,
+    fontWeight: 'bold',
+  },
+  toggleButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 11,
+  },
+  toggleButtonExpanded: {
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { SYNOLOGY_CONFIG } from '../config';
 
 interface UploadResult {
@@ -19,15 +20,33 @@ export const uploadToSynology = async (fileUri: string, fileName: string): Promi
       };
     }
 
+    // Process image if it's an image file
+    let processedUri = fileUri;
+    if (fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      try {
+        console.log('Processing image before upload...');
+        const processedImage = await ImageManipulator.manipulateAsync(
+          fileUri,
+          [{ resize: { width: 2000 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        processedUri = processedImage.uri;
+        console.log('Image processed successfully');
+      } catch (error) {
+        console.warn('Failed to process image:', error);
+        // Continue with original file if processing fails
+      }
+    }
+
     // Create base64 authorization header
     const auth = btoa(`${SYNOLOGY_CONFIG.USERNAME}:${SYNOLOGY_CONFIG.PASSWORD}`);
     const baseHeaders = {
       'Authorization': `Basic ${auth}`,
     };
 
-    // Create the WebDAV base URL
+    // Create the WebDAV base URL for upload
     const webdavBaseUrl = `${SYNOLOGY_CONFIG.HOST}`;
-    console.log('WebDAV Base URL:', webdavBaseUrl); // Debug log
+    console.log('WebDAV Base URL:', webdavBaseUrl);
 
     // Common axios config
     const axiosConfig = {
@@ -37,10 +56,10 @@ export const uploadToSynology = async (fileUri: string, fileName: string): Promi
     };
 
     // First, verify WebDAV connection and folder existence
-    console.log('Verifying WebDAV connection...'); // Debug log
+    console.log('Verifying WebDAV connection...');
     try {
       const checkUrl = `${webdavBaseUrl}${SYNOLOGY_CONFIG.UPLOAD_PATH}`;
-      console.log('Checking folder at:', checkUrl); // Debug log
+      console.log('Checking folder at:', checkUrl);
 
       const checkResponse = await axios({
         ...axiosConfig,
@@ -53,9 +72,9 @@ export const uploadToSynology = async (fileUri: string, fileName: string): Promi
         timeout: 5000,
       });
 
-      console.log('Folder check successful:', checkResponse.status); // Debug log
+      console.log('Folder check successful:', checkResponse.status);
     } catch (err) {
-      console.log('Folder check failed:', (err as Error).message); // Debug log
+      console.log('Folder check failed:', (err as Error).message);
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 404) {
           return {
@@ -69,7 +88,6 @@ export const uploadToSynology = async (fileUri: string, fileName: string): Promi
             error: 'Authentication failed. Please check your username and password.',
           };
         }
-        // Log detailed error information
         console.error('Detailed error:', {
           status: err.response?.status,
           statusText: err.response?.statusText,
@@ -80,36 +98,35 @@ export const uploadToSynology = async (fileUri: string, fileName: string): Promi
       throw err;
     }
 
-    // Read the file as base64
-    console.log('Reading file...'); // Debug log
-    const base64Content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    console.log('File read successfully, size:', base64Content.length); // Debug log
-
     // Create the full WebDAV URL for file upload
     const uploadUrl = `${webdavBaseUrl}${SYNOLOGY_CONFIG.UPLOAD_PATH}/${fileName}`;
-    console.log('Uploading to:', uploadUrl); // Debug log
+    console.log('Uploading to:', uploadUrl);
 
-    // Upload the file using WebDAV PUT request
-    const uploadResponse = await axios({
-      ...axiosConfig,
-      method: 'PUT',
-      url: uploadUrl,
-      data: base64Content,
+    // Use FileSystem.uploadAsync for direct file upload
+    const uploadResult = await FileSystem.uploadAsync(uploadUrl, processedUri, {
       headers: {
         ...baseHeaders,
         'Content-Type': 'application/octet-stream',
-        'Content-Transfer-Encoding': 'base64',
       },
-      maxBodyLength: Infinity,
-      transformRequest: [(data) => data],
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     });
 
-    console.log('Upload successful:', uploadResponse.status); // Debug log
+    console.log('Upload response:', uploadResult.status);
 
-    // Return the URL that can be used to access the file
-    const accessUrl = uploadUrl;
+    if (uploadResult.status !== 200 && uploadResult.status !== 201) {
+      throw new Error(`Upload failed with status ${uploadResult.status}`);
+    }
+
+    // Return the new URL format for accessing the file
+    const accessUrl = `${SYNOLOGY_CONFIG.NGINX_HOST}/${encodeURIComponent(fileName)}`;
+    console.log('Access URL:', {
+      url: accessUrl,
+      originalFileName: fileName,
+      encodedFileName: encodeURIComponent(fileName),
+      timestamp: new Date().toISOString()
+    });
+
     return {
       success: true,
       url: accessUrl,

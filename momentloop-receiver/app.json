@@ -17,7 +17,27 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.momentloop.receiver"
+      "bundleIdentifier": "com.momentloop.receiver",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "pierrickm.synology.me": {
+              "NSIncludesSubdomains": true,
+              "NSTemporaryExceptionAllowsInsecureHTTPLoads": false,
+              "NSTemporaryExceptionMinimumTLSVersion": "TLSv1.2",
+              "NSTemporaryExceptionRequiresForwardSecrecy": true,
+              "NSRequiresCertificateTransparency": false,
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionRequiresForwardSecrecy": true,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2",
+              "NSThirdPartyExceptionAllowsInsecureHTTPLoads": false,
+              "NSThirdPartyExceptionRequiresForwardSecrecy": true,
+              "NSThirdPartyExceptionMinimumTLSVersion": "TLSv1.2"
+            }
+          }
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +50,9 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "VIBRATE"
-      ]
+      ],
+      "allowBackup": true,
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"

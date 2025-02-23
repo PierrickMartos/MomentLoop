@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, Platform, TextInput, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as Notifications from 'expo-notifications';
@@ -71,89 +71,135 @@ export default function App() {
         throw new Error(uploadResult.error || 'Failed to upload file');
       }
 
+      console.log('Sending notification with URL:', uploadResult.url);
+
       // Send notification with the Synology URL
       const message = {
-        to: receiverToken,
-        sound: 'default',
-        title: 'New Media Shared!',
+        to: receiverToken.trim(), // Trim any whitespace from token
+        sound: "default",
+        title: "New Media Shared!",
         body: `You received a new ${selectedMedia.type}!`,
         data: {
           mediaType: selectedMedia.type,
           mediaUrl: uploadResult.url,
         },
+        priority: 'high',
+        channelId: 'default', // Add channel ID for Android
       };
 
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Accept-encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(message),
-      });
+      console.log('Sending notification with payload:', JSON.stringify(message, null, 2));
 
-      Alert.alert('Success', 'Media uploaded and sent successfully!');
-      setSelectedMedia(null);
+      try {
+        const notificationResponse = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(message),
+        });
+
+        const responseData = await notificationResponse.json();
+        console.log('Notification response:', JSON.stringify(responseData, null, 2));
+
+        if (!notificationResponse.ok) {
+          console.error('Notification error details:', {
+            status: notificationResponse.status,
+            statusText: notificationResponse.statusText,
+            response: responseData
+          });
+          throw new Error(`Notification failed: ${responseData.message || responseData.errors?.[0]?.message || 'Unknown error'}`);
+        }
+
+        // Check for specific error types in the response
+        if (responseData.errors && responseData.errors.length > 0) {
+          const errorMessage = responseData.errors.map((e: any) => e.message).join(', ');
+          throw new Error(`Notification errors: ${errorMessage}`);
+        }
+
+        if (responseData.data?.status === 'error') {
+          throw new Error(`Notification error: ${responseData.data.message || 'Unknown error'}`);
+        }
+
+        // New response format handling
+        if (responseData.data?.status === 'ok' && responseData.data?.id) {
+          console.log('Notification sent successfully with ID:', responseData.data.id);
+          Alert.alert('Success', 'Media uploaded and notification sent successfully!');
+          setSelectedMedia(null);
+        } else {
+          throw new Error('Unexpected response format from notification service');
+        }
+      } catch (notificationError) {
+        console.error('Notification error:', notificationError);
+        throw new Error(`Failed to send notification: ${notificationError instanceof Error ? notificationError.message : 'Unknown error'}`);
+      }
     } catch (error) {
-      console.error('Error sending media:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to send media');
+      console.error('Error in send process:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? `${error.message}\n\nPlease verify:\n1. The receiver token is correct (no extra spaces)\n2. The receiver app is properly set up\n3. The receiver has allowed notifications\n4. Both apps are using the same Expo project ID`
+          : 'Failed to send media'
+      );
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="auto" />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <StatusBar style="auto" />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter receiver's token"
-        value={receiverToken}
-        onChangeText={setReceiverToken}
-        multiline
-        numberOfLines={2}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter receiver's token"
+          value={receiverToken}
+          onChangeText={setReceiverToken}
+          multiline
+          numberOfLines={2}
+        />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={pickMedia}
-        disabled={isUploading}
-      >
-        <Text style={styles.buttonText}>Pick Media</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={pickMedia}
+          disabled={isUploading}
+        >
+          <Text style={styles.buttonText}>Pick Media</Text>
+        </TouchableOpacity>
 
-      {selectedMedia && (
-        <View style={styles.previewContainer}>
-          <Text style={styles.previewText}>Selected {selectedMedia.type}:</Text>
-          <Image
-            source={{ uri: selectedMedia.uri }}
-            style={styles.preview}
-            resizeMode="contain"
-          />
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          styles.sendButton,
-          (isUploading || !selectedMedia) && styles.disabledButton
-        ]}
-        onPress={sendNotification}
-        disabled={isUploading || !selectedMedia}
-      >
-        {isUploading ? (
-          <View style={styles.uploadingContainer}>
-            <ActivityIndicator color="#fff" />
-            <Text style={[styles.buttonText, styles.uploadingText]}>Uploading...</Text>
+        {selectedMedia && (
+          <View style={styles.previewContainer}>
+            <Text style={styles.previewText}>Selected {selectedMedia.type}:</Text>
+            <Image
+              source={{ uri: selectedMedia.uri }}
+              style={styles.preview}
+              resizeMode="contain"
+            />
           </View>
-        ) : (
-          <Text style={styles.buttonText}>Send to Receiver</Text>
         )}
-      </TouchableOpacity>
-    </View>
+
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.sendButton,
+            (isUploading || !selectedMedia) && styles.disabledButton
+          ]}
+          onPress={sendNotification}
+          disabled={isUploading || !selectedMedia}
+        >
+          {isUploading ? (
+            <View style={styles.uploadingContainer}>
+              <ActivityIndicator color="#fff" />
+              <Text style={[styles.buttonText, styles.uploadingText]}>Uploading...</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Send to Receiver</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
