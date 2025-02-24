@@ -37,3 +37,44 @@ commands.
 - Improve UI/UX
 - i18n
 - Register mecanism for notifications to sync between sender and receiver
+
+## Testing
+
+This project uses Jest for testing. We've set up testing for both the sender and receiver apps.
+
+### Running Tests
+
+For the sender app:
+```bash
+cd momentloop-sender
+npm test
+```
+
+For the receiver app:
+```bash
+cd momentloop-receiver
+npm test
+```
+
+### Watch Mode
+
+For development, you can use watch mode to automatically run tests when files change:
+```bash
+npm run test:watch
+```
+
+### Coverage Reports
+
+To generate test coverage reports:
+```bash
+npm run test:coverage
+```
+
+Coverage reports will be generated in the `coverage` directory of each project.
+
+### Writing Tests
+
+- Test files should be placed in the `__tests__` directory
+- Use the `.test.tsx` or `.test.ts` extension for test files
+- Mock external dependencies to avoid network requests and permissions issues
+- Use React Native Testing Library for component testing
