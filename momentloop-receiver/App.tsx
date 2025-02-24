@@ -152,6 +152,93 @@ const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVis
   );
 };
 
+interface MediaItemProps {
+  item: MediaNotification;
+  index: number;
+  isVisible: boolean;
+  dimensions: { width: number; height: number };
+}
+
+const MediaItem: React.FC<MediaItemProps> = ({ item, index, isVisible, dimensions }) => {
+  const [isImageLoading, setIsImageLoading] = useState(true);
+
+  return (
+    <View
+      style={[
+        styles.mediaContainer,
+        {
+          width: dimensions.width,
+          height: dimensions.height,
+        }
+      ]}
+    >
+      {item.type === 'image' ? (
+        <View style={styles.fullScreenMedia}>
+          {isImageLoading && (
+            <View style={[
+              styles.loadingContainer,
+              { opacity: 0.7 }
+            ]}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Loading image...</Text>
+            </View>
+          )}
+          <Image
+            source={{
+              uri: item.url,
+              cache: 'reload',
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8',
+                'Origin': '*'
+              }
+            }}
+            style={[
+              StyleSheet.absoluteFill,
+              styles.mediaContent,
+              { opacity: isImageLoading ? 0 : 1 }
+            ]}
+            resizeMode="contain"
+            onLoadStart={() => {
+              console.log('Image loading started:', {
+                url: item.url,
+                timestamp: new Date().toISOString()
+              });
+              setIsImageLoading(true);
+            }}
+            onError={(error) => {
+              console.error('Image loading error:', {
+                url: item.url,
+                error: error.nativeEvent.error,
+                timestamp: new Date().toISOString()
+              });
+              setIsImageLoading(false);
+            }}
+            onLoad={() => {
+              console.log('Image loaded successfully:', {
+                url: item.url,
+                timestamp: new Date().toISOString()
+              });
+              setIsImageLoading(false);
+            }}
+          />
+        </View>
+      ) : (
+        <View style={styles.fullScreenMedia}>
+          <VideoPlayer
+            uri={item.url}
+            style={[
+              StyleSheet.absoluteFill,
+              styles.mediaContent
+            ]}
+            isVisible={isVisible}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function App() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [visibleItemIndex, setVisibleItemIndex] = useState<number>(0);
@@ -366,105 +453,7 @@ export default function App() {
 
   const renderMediaItem = ({ item, index }: { item: MediaNotification; index: number }) => {
     const isVisible = index === visibleItemIndex;
-    const [isImageLoading, setIsImageLoading] = useState(true);
-
-    console.log('Rendering media item:', {
-      type: item.type,
-      url: item.url,
-      isHttps: item.url.startsWith('https')
-    });
-
-    return (
-      <View
-        style={[
-          styles.mediaContainer,
-          {
-            width: dimensions.width,
-            height: dimensions.height,
-          }
-        ]}
-      >
-        {item.type === 'image' ? (
-          <View style={styles.fullScreenMedia}>
-            {isImageLoading && (
-              <View style={[
-                styles.loadingContainer,
-                { opacity: 0.7 }
-              ]}>
-                <ActivityIndicator size="large" color="#fff" />
-                <Text style={styles.loadingText}>Loading image...</Text>
-              </View>
-            )}
-            <Image
-              source={{
-                uri: item.url,
-                cache: 'reload',
-                headers: {
-                  'Cache-Control': 'no-cache',
-                  'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8',
-                  'Origin': '*'
-                }
-              }}
-              style={[
-                StyleSheet.absoluteFill,
-                styles.mediaContent,
-                { opacity: isImageLoading ? 0 : 1 }
-              ]}
-              resizeMode="contain"
-              onLoadStart={() => {
-                console.log('Image loading started:', {
-                  url: item.url,
-                  timestamp: new Date().toISOString()
-                });
-                // Try to prefetch the image
-                Image.prefetch(item.url).then(
-                  () => console.log('Image prefetch success'),
-                  (error) => console.log('Image prefetch failed:', error)
-                );
-                setIsImageLoading(true);
-              }}
-              onError={(error) => {
-                console.error('Image loading error:', {
-                  url: item.url,
-                  error: error.nativeEvent.error,
-                  timestamp: new Date().toISOString()
-                });
-                setIsImageLoading(false);
-
-                // Try to load the image with a different protocol
-                if (item.url.startsWith('https://')) {
-                  const httpUrl = item.url.replace('https://', 'http://');
-                  console.log('Retrying with HTTP:', httpUrl);
-                  setNotifications(prev =>
-                    prev.map(n =>
-                      n.id === item.id ? { ...n, url: httpUrl } : n
-                    )
-                  );
-                }
-              }}
-              onLoad={() => {
-                console.log('Image loaded successfully:', {
-                  url: item.url,
-                  timestamp: new Date().toISOString()
-                });
-                setIsImageLoading(false);
-              }}
-            />
-          </View>
-        ) : (
-          <View style={styles.fullScreenMedia}>
-            <VideoPlayer
-              uri={item.url}
-              style={[
-                StyleSheet.absoluteFill,
-                styles.mediaContent
-              ]}
-              isVisible={isVisible}
-            />
-          </View>
-        )}
-      </View>
-    );
+    return <MediaItem item={item} index={index} isVisible={isVisible} dimensions={dimensions} />;
   };
 
   return (

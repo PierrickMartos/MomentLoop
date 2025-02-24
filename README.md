@@ -13,9 +13,6 @@ commands.
 
 - cd momentloop-sender
 - npx expo start
-- npm run android
-- npm run ios
-- npm run web
 
 ## Notes
 - The receiver app is designed to be used in landscape mode.
@@ -29,3 +26,14 @@ commands.
 - The receiver app also shows a toast with the message.
 - The receiver app also plays a sound.
 - The receiver app also shows a notification with the message.
+
+## Todo
+- Compress video before sending
+- Use expo secret store
+- Implement settings to input login/password for synology
+- Implement settings to input URL for synology
+- Implement settings to input path on synology to upload the files
+- Implement text input for the message
+- Improve UI/UX
+- i18n
+- Register mecanism for notifications to sync between sender and receiver
