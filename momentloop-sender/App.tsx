@@ -27,7 +27,9 @@ export default function App() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.7, // Reduce quality to 70%
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium, // Use medium quality for videos
+        exif: false, // Don't include EXIF data to reduce size
       });
 
       if (!result.canceled) {

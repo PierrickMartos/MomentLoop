@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- momentloop-receiver folder is a ReactNative/Expo app to display photos and videos sent by momentloop-sender
+- momentloop-sender folder is anoter ReactNative/Expo app to send photos and videos to the receiver

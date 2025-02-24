@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Sender",
+      "type": "shell",
+      "command": "cd momentloop-sender && npx expo start",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Receiver",
+      "type": "shell",
+      "command": "cd momentloop-receiver && npx expo start",
+      "problemMatcher": []
+    }
+  ]
+}

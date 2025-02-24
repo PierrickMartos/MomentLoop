@@ -1,0 +1,8 @@
+# Cursor ignore rules
+node_modules/
+.git/
+build/
+dist/
+*.log
+.DS_Store
+coverage/
