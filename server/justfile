@@ -4,6 +4,7 @@ default:
     @echo "Run 'just dev' to start the server in development mode with auto-reload"
     @echo "Run 'just setup-all' to install all dependencies"
     @echo "Run 'just cache-deps' to cache all dependencies"
+    @echo "Run 'just deploy' to deploy the server"
 
 # Start the server
 start:
@@ -75,6 +76,45 @@ setup-all:
 install:
     @echo "Installing dependencies..."
     deno install
+
+# Deploy the server (used by CI/CD)
+deploy DEPLOY_PATH:
+    #!/usr/bin/env bash
+    set -e
+    echo "Deploying MomentLoop Video Processing Server to {{DEPLOY_PATH}}..."
+
+    # Create deployment directory
+    mkdir -p {{DEPLOY_PATH}}
+
+    # Backup current server if it exists
+    if [ -d "{{DEPLOY_PATH}}/server" ]; then
+      echo "Backing up existing server..."
+      mv {{DEPLOY_PATH}}/server {{DEPLOY_PATH}}/server_backup_$(date +%Y%m%d_%H%M%S)
+    fi
+
+    # Create new server directory
+    mkdir -p {{DEPLOY_PATH}}/server
+
+    # Copy server files
+    echo "Copying server files..."
+    cp -r . {{DEPLOY_PATH}}/server/
+
+    # Change to the deployed directory
+    cd {{DEPLOY_PATH}}/server
+
+    # Setup dependencies
+    echo "Setting up dependencies..."
+    just setup-all
+
+    # Stop existing server if running
+    echo "Stopping existing server if running..."
+    pkill -f "deno run.*server.ts" || true
+
+    # Start server in background
+    echo "Starting server..."
+    nohup just start > server.log 2>&1 &
+
+    echo "Deployment completed successfully!"
 
 # Test push notification
 test-push TOKEN:
