@@ -5,8 +5,8 @@ concurrency: production
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'server/**'
+    # paths:
+    #   - 'server/**'
 
 jobs:
   deploy:
