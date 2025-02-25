@@ -2,7 +2,6 @@
 import fastify from 'fastify';
 import { exec } from 'exec';
 import { exists } from 'std/fs/exists.ts';
-import { ensureDir } from 'std/fs/ensure_dir.ts';
 import { join } from 'std/path/mod.ts';
 
 // Create Fastify instance
