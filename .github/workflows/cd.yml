@@ -33,19 +33,7 @@ jobs:
           rsync -avz --delete ./server/ ${SSH_USER}@${SSH_HOST}:/tmp/momentloop-server/
 
           # Execute the deployment using the server's justfile
-          ssh ${SSH_USER}@${SSH_HOST} "cd /tmp/momentloop-server && \
-            # Ensure just is installed on the remote server
-            if ! command -v just &> /dev/null; then \
-              echo 'Installing just on remote server...' && \
-              if command -v brew &> /dev/null; then \
-                brew install just; \
-              else \
-                echo 'Homebrew not found. Please install Homebrew on your macOS server.' && \
-                exit 1; \
-              fi \
-            fi && \
-            # Run the deploy recipe from the server's justfile
-            just deploy ${SERVER_DEPLOY_PATH}"
+          ssh ${SSH_USER}@${SSH_HOST} "cd /tmp/momentloop-server && just deploy ${SERVER_DEPLOY_PATH}"
 
           echo "Deployment completed successfully!"
 
