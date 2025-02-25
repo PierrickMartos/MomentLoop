@@ -40,3 +40,5 @@ jobs:
             just deploy ${SERVER_DEPLOY_PATH}"
 
           echo "Deployment completed successfully!"
+
+          exit 0
