@@ -24,8 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.momentloop.unlockdevicepushnotif",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.momentloop.unlockdevicepushnotif"
     },
     "web": {
       "favicon": "./assets/favicon.png"
