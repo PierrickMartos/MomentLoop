@@ -5,12 +5,14 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { uploadToSynology } from './utils/synologyUploader';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 export default function App() {
   const [selectedMedia, setSelectedMedia] = useState<{
     uri: string;
     type: 'image' | 'video';
     fileName?: string;
+    thumbnail?: string;
   } | null>(null);
   const [receiverToken, setReceiverToken] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -41,11 +43,26 @@ export default function App() {
           uri: asset.uri,
           type: asset.type === 'video' ? 'video' : 'image',
           fileName: fileName,
+          thumbnail: asset.type === 'video' ? await generateThumbnail(asset.uri) : undefined,
         });
       }
     } catch (error) {
       console.error('Error picking media:', error);
       Alert.alert('Error', 'Failed to pick media');
+    }
+  };
+
+  const generateThumbnail = async (uri: string) => {
+    try {
+      const thumbnail = await VideoThumbnails.getThumbnailAsync(
+        uri,
+        {
+          time: 15000,
+        }
+      );
+      return thumbnail.uri;
+    } catch (e) {
+      console.warn(e);
     }
   };
 
@@ -83,7 +100,7 @@ export default function App() {
         body: `You received a new ${selectedMedia.type}!`,
         data: {
           mediaType: selectedMedia.type,
-          mediaUrl: uploadResult.url,
+          mediaUrl: uploadResult.url.replace('.mov', '.mp4'),
         },
         priority: 'high',
         channelId: 'default', // Add channel ID for Android
@@ -175,7 +192,7 @@ export default function App() {
           <View style={styles.previewContainer}>
             <Text style={styles.previewText}>Selected {selectedMedia.type}:</Text>
             <Image
-              source={{ uri: selectedMedia.uri }}
+              source={{ uri: selectedMedia.thumbnail || selectedMedia.uri }}
               style={styles.preview}
               resizeMode="contain"
             />

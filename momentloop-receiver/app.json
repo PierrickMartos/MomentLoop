@@ -61,7 +61,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/icon.png",
           "color": "#e8c79e"
         }
       ],
@@ -71,6 +71,7 @@
           "microphonePermission": false
         }
       ],
+      "expo-video",
       "react-native-cloud-storage"
     ],
     "extra": {

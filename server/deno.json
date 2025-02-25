@@ -1,0 +1,30 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env --allow-sys server.ts",
+    "dev": "deno run --watch --allow-net --allow-read --allow-write --allow-run --allow-env --allow-sys server.ts",
+    "cache": "deno cache --reload server.ts"
+  },
+  "imports": {
+    "fastify": "npm:fastify@4.26.1",
+    "std/": "https://deno.land/std@0.208.0/",
+    "exec": "https://deno.land/x/exec@0.0.5/mod.ts",
+    "uuid": "https://deno.land/std@0.208.0/uuid/mod.ts",
+    "path": "https://deno.land/std@0.208.0/path/mod.ts",
+    "fs": "https://deno.land/std@0.208.0/fs/mod.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns"]
+  },
+  "lint": {
+    "include": ["server.ts"],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "include": ["server.ts"],
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": true
+  }
+}

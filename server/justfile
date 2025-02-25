@@ -1,0 +1,97 @@
+default:
+    @echo "MomentLoop Video Processing Server"
+    @echo "Run 'just start' to start the server"
+    @echo "Run 'just dev' to start the server in development mode with auto-reload"
+    @echo "Run 'just setup-all' to install all dependencies"
+    @echo "Run 'just cache-deps' to cache all dependencies"
+
+# Start the server
+start:
+    @echo "Starting MomentLoop Video Processing Server..."
+    deno task start
+
+# Start the server in development mode with auto-reload
+dev:
+    @echo "Starting MomentLoop Video Processing Server in development mode..."
+    deno task dev
+
+# Check if ffmpeg is installed
+check-deps:
+    @echo "Checking dependencies..."
+    @which ffmpeg > /dev/null || (echo "Error: ffmpeg is not installed. Please install it with: brew install ffmpeg" && exit 1)
+    @which deno > /dev/null || (echo "Error: deno is not installed. Please install it with: curl -fsSL https://deno.land/x/install/install.sh | sh" && exit 1)
+    @echo "All dependencies are installed."
+
+# Create necessary directories
+setup:
+    @echo "Setting up server environment..."
+    @mkdir -p videos-processed
+    @echo "Setup complete."
+
+# Cache Deno dependencies
+cache-deps:
+    @echo "Caching Deno dependencies..."
+    deno task cache
+    @echo "Dependencies cached successfully."
+
+# Install all dependencies and set up the environment
+setup-all:
+    @echo "Setting up MomentLoop Video Processing Server with all dependencies..."
+
+    # Check and install Homebrew if not available
+    @which brew > /dev/null || (echo "Installing Homebrew..." && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)")
+
+    # Check and install FFmpeg if not available
+    #@which ffmpeg > /dev/null || (echo "Installing FFmpeg..." && brew install ffmpeg)
+
+    # Check and install Deno if not available
+    @which deno > /dev/null || (echo "Installing Deno..." && curl -fsSL https://deno.land/x/install/install.sh | sh)
+
+    # Add Deno to PATH if not already there
+    @if [ -f "$HOME/.deno/bin/deno" ] && ! which deno > /dev/null; then \
+        echo "Adding Deno to PATH..."; \
+        echo 'export DENO_INSTALL="$HOME/.deno"' >> ~/.zshrc; \
+        echo 'export PATH="$DENO_INSTALL/bin:$PATH"' >> ~/.zshrc; \
+        echo "Please restart your terminal or run 'source ~/.zshrc' to use Deno"; \
+    fi
+
+    # Create necessary directories
+    @mkdir -p videos-processed
+
+    # Check if Deno is available in current session
+    @if which deno > /dev/null; then \
+        echo "Verifying Deno installation..."; \
+        deno --version; \
+        echo "Installing packages..."; \
+        just install; \
+        echo "Caching dependencies..."; \
+        deno task cache; \
+    else \
+        echo "Deno installed but not available in current session. Please restart your terminal or run 'source ~/.zshrc'"; \
+    fi
+
+    @echo "Setup complete! You can now run 'just start' to start the server."
+
+install:
+    @echo "Installing dependencies..."
+    deno install
+
+# Test push notification
+test-push TOKEN:
+    @echo "Testing push notification to Expo app..."
+    @curl -X POST -H "Content-Type: application/json" -d "{\"to\":\"{{TOKEN}}\",\"sound\":\"default\",\"title\":\"Test Notification\",\"body\":\"This is a test notification from MomentLoop Server\",\"data\":{\"test\":true}}" https://exp.host/--/api/v2/push/send
+    @echo "\nTest notification sent to {{TOKEN}}"
+
+# Test video processing with a sample video
+test-video URL TOKEN="":
+    @echo "Testing video processing with URL: {{URL}}"
+    @if [ -z "{{TOKEN}}" ]; then \
+        curl -X POST -H "Content-Type: application/json" -d "{\"videoUrl\":\"{{URL}}\"}" http://localhost:3000/process-video; \
+    else \
+        curl -X POST -H "Content-Type: application/json" -d "{\"videoUrl\":\"{{URL}}\",\"expoPushToken\":\"{{TOKEN}}\"}" http://localhost:3000/process-video; \
+    fi
+    @echo "\nTest request sent"
+
+# Show help
+help:
+    @just --list

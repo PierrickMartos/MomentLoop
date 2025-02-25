@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, FlatList, Image, Platform, useWindowDimensions, TouchableOpacity, Alert, ActivityIndicator, ViewabilityConfig, ViewToken } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
+import { Audio, AVPlaybackStatus } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
@@ -54,80 +55,162 @@ interface MediaNotification {
 }
 
 const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVisible: boolean }) => {
-  const videoRef = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [replayCount, setReplayCount] = useState(0);
   const [hasReachedLimit, setHasReachedLimit] = useState(false);
   const MAX_REPLAYS = 5;
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 10; // Maximum number of retries
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   console.log('Video source config:', { uri });
 
+  // Create a video player instance
+  const player = useVideoPlayer(uri, player => {
+    player.loop = !hasReachedLimit;
+    if (isVisible && !hasReachedLimit) {
+      player.play();
+    }
+  });
+
+  // Function to retry loading the video
+  const retryLoadingVideo = useCallback(() => {
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying video load (${retryCount + 1}/${MAX_RETRIES}): ${uri}`);
+      setIsLoading(true);
+      setError(null);
+      player.replace(uri);
+      setRetryCount(prev => prev + 1);
+    } else {
+      setError(`Failed to load video after ${MAX_RETRIES} attempts`);
+    }
+  }, [uri, retryCount, player]);
+
+  // Reset states when URI changes
   useEffect(() => {
-    // Reset states when URI changes
     setIsLoading(true);
     setError(null);
     setReplayCount(0);
     setHasReachedLimit(false);
-  }, [uri]);
+    setRetryCount(0);
 
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isVisible) {
-        if (!hasReachedLimit) {
-          videoRef.current.playAsync();
-        }
-      } else {
-        videoRef.current.pauseAsync();
-      }
+    // Clear any existing retry timeout
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
     }
-  }, [isVisible, hasReachedLimit]);
 
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setIsLoading(false);
+    // Replace the video source when URI changes
+    player.replace(uri);
+  }, [uri, player]);
 
-      // Track video completion
-      if (status.didJustFinish) {
+  // Control playback based on visibility
+  useEffect(() => {
+    if (isVisible) {
+      if (!hasReachedLimit) {
+        player.play();
+      }
+    } else {
+      player.pause();
+    }
+  }, [isVisible, hasReachedLimit, player]);
+
+  // Handle player status changes
+  useEffect(() => {
+    const statusSubscription = player.addListener('statusChange', ({ status, error: playerError }) => {
+      if (playerError) {
+        console.error('Video error:', playerError);
+        setError('Failed to load video');
+
+        // Set up retry timeout
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(retryLoadingVideo, 20000); // Retry after 20 seconds
+      }
+
+      if (status === 'readyToPlay') {
+        setIsLoading(false);
+        setError(null);
+        setRetryCount(0);
+
+        // Clear retry timeout if video loaded successfully
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+          retryTimeoutRef.current = null;
+        }
+      }
+    });
+
+    // Handle playback completion
+    const playingSubscription = player.addListener('playingChange', (event) => {
+      // Track video completion when it stops playing and wasn't paused manually
+      if (!event.isPlaying && !hasReachedLimit && player.currentTime > 0) {
         const newCount = replayCount + 1;
         setReplayCount(newCount);
 
         if (newCount >= MAX_REPLAYS) {
           setHasReachedLimit(true);
-          videoRef.current?.pauseAsync();
+        } else {
+          // Auto replay if not reached limit
+          player.replay();
         }
       }
-    }
+    });
+
+    // Handle errors
+    const errorSubscription = player.addListener('statusChange', ({ error: playerError }) => {
+      if (playerError) {
+        console.error('Video error:', playerError);
+        console.error('Failed URL:', uri);
+        setError('Failed to load video');
+        setIsLoading(false);
+
+        // Set up retry timeout
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(retryLoadingVideo, 20000); // Retry after 20 seconds
+      }
+    });
+
+    // Clean up subscriptions and timeout on unmount
+    return () => {
+      statusSubscription.remove();
+      playingSubscription.remove();
+      errorSubscription.remove();
+
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, [player, hasReachedLimit, replayCount, uri, retryLoadingVideo]);
+
+  const handleReplay = () => {
+    setReplayCount(0);
+    setHasReachedLimit(false);
+    player.replay();
   };
 
-  const onError = (error: string) => {
-    console.error('Video error:', error);
-    console.error('Failed URL:', uri);
-    setError('Failed to load video');
-    setIsLoading(false);
-  };
-
-  const handleReplay = async () => {
-    if (videoRef.current) {
-      setReplayCount(0);
-      setHasReachedLimit(false);
-      await videoRef.current.replayAsync();
+  const handleRetryNow = () => {
+    // Clear existing timeout and retry immediately
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
     }
+    retryLoadingVideo();
   };
 
   return (
     <View style={[styles.videoWrapper, { width: screenWidth, height: screenHeight }]}>
-      <Video
-        ref={videoRef}
-        source={{ uri }}
+      <VideoView
+        player={player}
         style={[styles.video, { width: screenWidth, height: screenHeight }]}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
-        isLooping={!hasReachedLimit}
-        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-        onError={() => onError('Video playback error')}
-        shouldPlay={isVisible && !hasReachedLimit}
+        nativeControls={true}
+        contentFit="contain"
       />
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -138,6 +221,14 @@ const VideoPlayer = ({ uri, style, isVisible }: { uri: string; style: any; isVis
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          {retryCount > 0 && (
+            <Text style={styles.retryCountText}>
+              Retry {retryCount}/{MAX_RETRIES} (Next retry in 20s)
+            </Text>
+          )}
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetryNow}>
+            <Text style={styles.retryButtonText}>Retry Now</Text>
+          </TouchableOpacity>
         </View>
       )}
       {hasReachedLimit && (
@@ -703,6 +794,24 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: 'bold',
+  },
+  retryCountText: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  retryButton: {
+    backgroundColor: 'rgba(0, 122, 255, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

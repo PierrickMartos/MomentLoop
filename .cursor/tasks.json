@@ -12,6 +12,18 @@
       "type": "shell",
       "command": "cd momentloop-receiver && npx expo start",
       "problemMatcher": []
+    },
+    {
+      "label": "Start server",
+      "type": "shell",
+      "command": "cd server && just start",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start server in dev mode",
+      "type": "shell",
+      "command": "cd server && just dev",
+      "problemMatcher": []
     }
   ]
 }

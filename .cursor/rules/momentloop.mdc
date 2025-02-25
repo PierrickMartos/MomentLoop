@@ -1,7 +1,8 @@
 ---
-description: 
+description: Overall rule for the project
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 - momentloop-receiver folder is a ReactNative/Expo app to display photos and videos sent by momentloop-sender
-- momentloop-sender folder is anoter ReactNative/Expo app to send photos and videos to the receiver
+- momentloop-sender folder is another ReactNative/Expo app to send photos and videos to the receiver
+- server folder is a Deno/Fastify server to process video, convert them and then sent push notif to the receiver
