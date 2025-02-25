@@ -1,4 +1,6 @@
-name: Deploy Server to macOS
+name: Deploy Server
+
+concurrency: production
 
 on:
   push:
@@ -9,7 +11,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
