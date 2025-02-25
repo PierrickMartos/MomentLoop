@@ -104,7 +104,7 @@ deploy DEPLOY_PATH:
 
     # Setup dependencies
     echo "Setting up dependencies..."
-    just setup-all
+    /usr/local/bin/just setup-all
 
     # Stop existing server if running
     echo "Stopping existing server if running..."
