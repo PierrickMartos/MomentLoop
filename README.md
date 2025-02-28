@@ -7,6 +7,10 @@ commands.
 - cd momentloop-receiver
 - npx expo start --android
 
+### Build APK
+
+`eas build -p android --profile preview`
+
 ## Sender
 To run your project, navigate to the directory and run one of the following npm
 commands.
