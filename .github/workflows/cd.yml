@@ -41,7 +41,7 @@ jobs:
           rsync -avz --delete ./server/ ${SSH_USER}@${SSH_HOST}:/tmp/momentloop-server/
 
           # Execute the deployment using the server's justfile
-          ssh ${SSH_USER}@${SSH_HOST} "cd /tmp/momentloop-server && /usr/local/bin/just deploy ${SERVER_DEPLOY_PATH}"
+          ssh ${SSH_USER}@${SSH_HOST} "source ~/.zshrc && cd /tmp/momentloop-server && /usr/local/bin/just deploy ${SERVER_DEPLOY_PATH}"
 
           echo "Deployment completed successfully!"
 
