@@ -48,9 +48,7 @@ export async function uploadToSynology(
         // Continue with original file if processing fails
       }
     }
-
-    // Construct the WebDAV URL
-    const webdavUrl = `${settings?.HOST}/webdav${settings?.UPLOAD_PATH}/${fileName}`;
+    const webdavUrl = `${settings?.HOST}/${settings?.UPLOAD_PATH}/${fileName}`;
 
     // Construct the final URL for accessing the file via NGINX
     const fileUrl = `${settings?.NGINX_HOST}${settings?.UPLOAD_PATH}/${fileName}`;
