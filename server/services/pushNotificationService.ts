@@ -28,15 +28,13 @@ export class PushNotificationService {
   /**
    * Send a push notification to an Expo push token
    * @param expoPushToken - The Expo push token to send the notification to
-   * @param mediaUrl - URL of the media to include in the notification
-   * @param mediaType - Type of media ('image' or 'video')
+   * @param videoUrl - URL of the video to include in the notification
    * @param options - Optional configuration for the notification
    * @returns Promise<boolean> - Whether the notification was sent successfully
    */
   async sendPushNotification(
     expoPushToken: string,
-    mediaUrl: string,
-    mediaType: 'image' | 'video',
+    videoUrl: string,
     options?: {
       title?: string;
       body?: string;
@@ -55,8 +53,8 @@ export class PushNotificationService {
       this.logger.info(`Sending push notification to ${expoPushToken}`);
 
       // Default notification content
-      const title = options?.title || 'New Media Available';
-      const body = options?.body || `A new ${mediaType} has been processed and is ready to view`;
+      const title = options?.title || 'New video available';
+      const body = options?.body || `A new video is ready to view`;
 
       // Create the message payload
       const message = {
@@ -72,8 +70,8 @@ export class PushNotificationService {
         ttl: options?.ttl,
         expiration: options?.expiration,
         data: {
-          mediaUrl,
-          mediaType,
+          mediaUrl: videoUrl,
+          mediaType: 'video',
           timestamp: new Date().toISOString(),
           ...options?.additionalData,
         },

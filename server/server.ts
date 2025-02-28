@@ -20,7 +20,10 @@ const videoProcessingService = new VideoProcessingService(app.log, VIDEOS_DIR, S
 
 // Define route for video processing
 app.post('/process-video', async (request, reply) => {
-  const { videoName, expoPushToken } = request.body as { videoName: string; expoPushToken?: string };
+  const { videoName, expoPushToken } = request.body as {
+    videoName: string;
+    expoPushToken?: string;
+  };
 
   if (!videoName) {
     return reply.code(400).send({ error: 'Video name is required' });
@@ -37,21 +40,24 @@ app.post('/process-video', async (request, reply) => {
 
     // Continue processing asynchronously after response is sent
     setTimeout(async () => {
-      // Process the video
-      const processResult = await videoProcessingService.processVideo(videoName);
+      try {
+        // Process the video
+        const processResult = await videoProcessingService.processVideo(videoName);
 
-      // Send push notification if token is provided
-      if (expoPushToken) {
-        await pushNotificationService.sendPushNotification(
-          expoPushToken,
-          processResult.processedVideoUrl,
-          'video'
-        );
+        // Send push notification if token is provided
+        if (expoPushToken) {
+          await pushNotificationService.sendPushNotification(
+            expoPushToken,
+            processResult.processedVideoUrl
+          );
 
-        app.log.info(`Push notification sent for video: ${videoName}`);
+          app.log.info(`Push notification sent for: ${videoName}`);
+        }
+
+        app.log.info(`Video processing completed for video: ${videoName}`);
+      } catch (processingError) {
+        app.log.error(`Async processing error: ${processingError}`);
       }
-
-      app.log.info(`Video processing completed for video: ${videoName}`);
     }, 0);
   } catch (error) {
     app.log.error(error);
