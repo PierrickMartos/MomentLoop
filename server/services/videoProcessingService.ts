@@ -54,13 +54,13 @@ export class VideoProcessingService {
       const command = `ffmpeg -i "${inputPath}" \
         -vf "scale='trunc(oh*a/2)*2:720,format=yuv420p,colorspace=all=bt2020nc'" \
         -c:v libx264 \
-        -crf 23 \
+        -crf 25 \
         -preset medium \
+        -vf "format=yuv420p" \
         -color_primaries bt2020 \
         -color_trc arib-std-b67 \
         -colorspace bt2020nc \
         -c:a copy \
-        -b:a 128k \
         "${outputPath}" -y`;
 
       this.logger.info(`Running command: ${command}`);
