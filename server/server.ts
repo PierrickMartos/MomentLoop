@@ -9,7 +9,7 @@ const app = fastify({
 });
 
 // Configuration
-const PORT = 3000;
+const PORT = 3012;
 const HOST = '0.0.0.0';
 const VIDEOS_DIR = Deno.env.get('VIDEOS_DIR') || '/volumes/MomentLoop/';
 const SERVER_URL = Deno.env.get('SERVER_URL');
@@ -42,9 +42,7 @@ app.post('/process-video', async (request, reply) => {
 
     return {
       success: true,
-      originalUrl: videoName,
-      processedUrl: processResult.needsConversion ? processResult.processedVideoUrl : null,
-      needsConversion: processResult.needsConversion,
+      videoUrl: processResult.processedVideoUrl,
       notificationSent: expoPushToken ? notificationSent : null
     };
   } catch (error) {

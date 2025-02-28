@@ -96,7 +96,7 @@ To start the server in development mode with auto-reload:
 just dev
 ```
 
-The server will be available at http://localhost:3000.
+The server will be available at http://localhost:3012.
 
 ### API Endpoints
 
@@ -108,7 +108,7 @@ Process a video from a URL, converting it to MP4 if it's a MOV file, and optiona
 
 ```json
 {
-  "videoUrl": "https://example.com/path/to/video.mov",
+  "videoName": "video.mov",
   "expoPushToken": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
 }
 ```
@@ -120,17 +120,11 @@ The `expoPushToken` field is optional. If provided, a push notification will be 
 ```json
 {
   "success": true,
-  "originalUrl": "https://example.com/path/to/video.mov",
-  "processedUrl": "http://localhost:3000/videos/12345-uuid.mp4",
+  "videoUrl": "https://example.com/path/to/video.mov",
   "needsConversion": true,
   "notificationSent": true
 }
 ```
-
-#### GET /videos/:filename
-
-Serves the processed video files.
-
 ## Video Processing
 
 The server uses FFmpeg to convert MOV files to MP4 with the following settings:
