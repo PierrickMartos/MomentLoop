@@ -28,14 +28,32 @@ app.post('/send-notification', async (req, res) => {
       return res.status(400).json({ error: 'Push token is required' });
     }
 
-    // Prepare the message
+    // Prepare the message with high priority and wake options
     const message = {
       to: token,
       sound: 'default',
       title: title || 'Unlock Device',
       body: body || 'This notification will attempt to unlock your device',
-      data: { unlock: true },
       priority: 'high',
+      // Include data for handling the notification
+      data: {
+        unlock: true,
+        fullScreenIntent: true,
+        // Android specific options
+        androidOptions: {
+          channelId: 'default',
+          priority: 'max',
+          sticky: true,
+          fullScreenIntent: true,
+        }
+      },
+      // These options help with waking the device
+      channelId: 'default',
+      badge: 1,
+      mutableContent: true,
+      // Ensure the notification is delivered immediately
+      ttl: 0,
+      expiration: 0,
     };
 
     // Send the notification using Expo's push notification service

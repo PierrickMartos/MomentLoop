@@ -49,7 +49,7 @@ Then, scan the QR code with your Expo Go app.
 
 1. The app registers for push notifications and displays the Expo push token
 2. When a notification is received, the app attempts to:
-   - For Android: Open a deep link to the app to bring it to the foreground
+   - For Android: Use full-screen intents and high-priority notifications to wake the device
    - This approach can wake the device screen if it's off, but cannot bypass security measures
 
 3. You can test this functionality by pressing the "Send Test Notification" button in the app
@@ -58,6 +58,33 @@ Then, scan the QR code with your Expo Go app.
    - Runs periodically (every minute) in the background
    - Attempts to bring the app to the foreground if there's a pending unlock request
    - Can be enabled/disabled via a switch in the app
+
+## Waking the Device Screen
+
+Waking a device screen with notifications can be challenging due to OS restrictions. This POC implements several strategies:
+
+### For Android:
+
+1. **Full-Screen Intents**: The app uses full-screen intents which can wake the device screen even when it's off
+2. **High-Priority Notifications**: Notifications are set to maximum priority to increase the chance of waking the device
+3. **Vibration and Sound**: Notifications include vibration patterns and sounds to help alert the user
+4. **Sticky Notifications**: Notifications are set to "sticky" so they remain visible until dismissed
+
+### For iOS:
+
+iOS has stricter limitations, but the app attempts to:
+1. **Use Critical Alerts**: When possible (requires special entitlements)
+2. **Set Maximum Priority**: Notifications are set to maximum priority
+3. **Include Sound and Badge**: To increase the chance of alerting the user
+
+### Device-Specific Considerations:
+
+- **Battery Optimization**: Many Android devices have aggressive battery optimization that can prevent apps from waking the device. You may need to:
+  - Disable battery optimization for the app
+  - Add the app to the "protected apps" list in device settings
+  - Disable "Doze" mode for the app
+
+- **Do Not Disturb Mode**: If the device is in Do Not Disturb mode, notifications may not wake the screen
 
 ## Debugging Push Notifications
 
@@ -125,12 +152,35 @@ If your push token is not displaying in the app:
    }
    ```
 
+### Notifications Not Waking the Device
+
+If notifications are received but not waking the device:
+
+1. **Check device settings**:
+   - Disable battery optimization for the app
+   - Make sure the app is not restricted in the background
+   - Check if Do Not Disturb mode is enabled
+
+2. **Verify app permissions**:
+   - Make sure the app has notification permissions
+   - For Android, ensure the app has the WAKE_LOCK permission
+
+3. **Test with different notification settings**:
+   - Try increasing the priority
+   - Add sound and vibration
+   - Use full-screen intents (Android)
+
+4. **Device manufacturer restrictions**:
+   - Some device manufacturers (especially Chinese brands like Xiaomi, Huawei, etc.) have aggressive battery optimization that can prevent notifications from waking the device
+   - Check manufacturer-specific settings for allowing apps to wake the device
+
 ## Limitations
 
 - iOS has stricter limitations on background processes and may not allow automatic unlocking
 - Android may allow waking the screen but cannot bypass security measures
 - The effectiveness depends on the device's OS version and manufacturer customizations
 - Background tasks have limitations in frequency and duration imposed by the operating system
+- Some device manufacturers implement custom battery optimization that can prevent notifications from waking the device
 
 ## For Production Use
 
@@ -141,3 +191,4 @@ For a production implementation, you would need to:
 3. Test thoroughly on various devices and OS versions
 4. Consider user privacy and security implications
 5. Implement a more robust background task system with proper error handling and retry mechanisms
+6. Consider using a native module for more direct control over device wake functionality

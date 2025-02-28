@@ -35,6 +35,7 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -48,6 +49,11 @@ async function registerForPushNotificationsAsync() {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
+      enableVibrate: true,
+      enableLights: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      showBadge: true,
+      sound: 'default',
     });
   }
 
@@ -182,7 +188,35 @@ export default function App() {
         if (Platform.OS === 'android') {
           // Use a direct app URL instead of createURL
           const appUrl = 'exp://exp.host/@username/unlock-device-push-notif';
-          Linking.openURL(appUrl).catch(err => console.error('Error opening URL:', err));
+
+          // Try to use a full-screen intent to wake the device
+          // This requires the USE_FULL_SCREEN_INTENT permission
+          Linking.openURL(appUrl).catch(err => {
+            console.error('Error opening URL:', err);
+
+            // If direct linking fails, try to use a full-screen intent via a new notification
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Wake Device",
+                body: "Attempting to wake device",
+                data: {
+                  unlock: true,
+                  fullScreenIntent: true,
+                  // Include Android-specific options in the data object
+                  androidOptions: {
+                    channelId: 'default',
+                    priority: 'max',
+                    sticky: true,
+                    fullScreenIntent: true,
+                  }
+                },
+                priority: 'max',
+                sound: 'default',
+                vibrate: [0, 250, 250, 250],
+              },
+              trigger: null, // Immediate notification
+            }).catch(err => console.error('Error sending full-screen notification:', err));
+          });
         }
 
         console.log('Attempting to unlock device via notification');
@@ -217,14 +251,42 @@ export default function App() {
 
   // Function to send a test notification
   const sendTestNotification = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Unlock Device",
-        body: "This notification will attempt to unlock your device",
-        data: { unlock: true },
-      },
-      trigger: null, // Immediate notification
-    });
+    if (Platform.OS === 'android') {
+      // For Android, use a notification with full-screen intent
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Unlock Device",
+          body: "This notification will attempt to unlock your device",
+          data: {
+            unlock: true,
+            fullScreenIntent: true,
+            // Include Android-specific options in the data object
+            androidOptions: {
+              channelId: 'default',
+              priority: 'max',
+              sticky: true,
+              fullScreenIntent: true,
+            }
+          },
+          sound: 'default',
+          priority: 'max',
+          vibrate: [0, 250, 250, 250],
+        },
+        trigger: null, // Immediate notification
+      });
+    } else {
+      // For iOS, use a regular notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Unlock Device",
+          body: "This notification will attempt to unlock your device",
+          data: { unlock: true },
+          sound: 'default',
+          priority: 'max',
+        },
+        trigger: null, // Immediate notification
+      });
+    }
   };
 
   return (

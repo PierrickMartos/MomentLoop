@@ -31,18 +31,36 @@ console.log(`Using push token: ${pushToken}`);
 // Function to send a test notification
 async function sendTestNotification() {
   try {
-    console.log('\nAttempting to send a test notification...');
+    console.log('\nAttempting to send a test notification with wake-device settings...');
 
     const message = {
       to: pushToken,
       sound: 'default',
-      title: 'Debug Test',
-      body: 'This is a test notification from the debug script',
-      data: { debug: true },
+      title: 'Wake Device Test',
+      body: 'This is a high-priority notification that should wake your device',
       priority: 'high',
+      // Include data for handling the notification
+      data: {
+        unlock: true,
+        fullScreenIntent: true,
+        // Android specific options
+        androidOptions: {
+          channelId: 'default',
+          priority: 'max',
+          sticky: true,
+          fullScreenIntent: true,
+        }
+      },
+      // These options help with waking the device
+      channelId: 'default',
+      badge: 1,
+      mutableContent: true,
+      // Ensure the notification is delivered immediately
+      ttl: 0,
+      expiration: 0,
     };
 
-    console.log('Sending message:', JSON.stringify(message, null, 2));
+    console.log('Sending message with wake-device settings:', JSON.stringify(message, null, 2));
 
     const response = await axios.post('https://exp.host/--/api/v2/push/send', message, {
       headers: {
@@ -57,10 +75,11 @@ async function sendTestNotification() {
 
     if (response.data.data && response.data.data.status === 'ok') {
       console.log('\n✅ Test notification sent successfully!');
-      console.log('If you don\'t receive the notification:');
-      console.log('1. Make sure your device is online');
-      console.log('2. Check that notifications are enabled for the app');
-      console.log('3. Verify the app is properly registered for push notifications');
+      console.log('If the notification doesn\'t wake your device:');
+      console.log('1. Check device battery optimization settings');
+      console.log('2. Make sure the app has the necessary permissions');
+      console.log('3. Verify the device is not in Do Not Disturb mode');
+      console.log('4. Some device manufacturers have additional restrictions on waking the device');
     } else {
       console.log('\n⚠️ The notification was accepted but there might be issues.');
       console.log('Check the response details above for more information.');

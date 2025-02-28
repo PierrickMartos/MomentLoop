@@ -18,9 +18,10 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": [
-            "./assets/notification-sound.wav"
-          ]
+          "sounds": ["./assets/notification-sound.wav"],
+          "mode": "production",
+          "importance": "max",
+          "priority": "max"
         }
       ]
     ],
@@ -28,7 +29,9 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "fetch",
+          "processing"
         ]
       }
     },
@@ -38,8 +41,15 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED"
-      ]
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_FULL_SCREEN_INTENT"
+      ],
+      "useNextNotificationsApi": true,
+      "allowBackup": true,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
