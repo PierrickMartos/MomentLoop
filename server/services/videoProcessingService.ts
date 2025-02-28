@@ -65,19 +65,76 @@ export class VideoProcessingService {
 
       this.logger.info(`Running command: ${command}`);
 
-      const { status } = await exec(command);
+      const startTime = Date.now();
+      const result = await exec(command);
+      const duration = Date.now() - startTime;
 
-      if (status.success) {
-        this.logger.info('Conversion successful');
-      } else {
-        this.logger.error('Conversion failed');
+      // Log detailed execution information
+      this.logger.info(`FFmpeg execution details - Success: ${result.status.success}, Exit code: ${result.status.code}, Duration: ${duration}ms`);
+      this.logger.info(`Command executed: ${command}`);
+      this.logger.info(`Input file: ${inputPath}, Output file: ${outputPath}`);
+
+      // Log standard output if available
+      if (result.output) {
+        const outputLines = result.output.split('\n').filter(line => line.trim() !== '');
+        if (outputLines.length > 0) {
+          this.logger.info('FFmpeg standard output:');
+          for (const line of outputLines) {
+            this.logger.info(`  ${line}`);
+          }
+        }
       }
 
-      return status.success;
+      // Check file sizes for additional information
+      try {
+        const inputStats = await Deno.stat(inputPath);
+        const outputStats = result.status.success ? await Deno.stat(outputPath) : null;
+
+        const inputSizeMB = (inputStats.size / (1024 * 1024)).toFixed(2);
+        const outputSizeMB = outputStats ? (outputStats.size / (1024 * 1024)).toFixed(2) : 'N/A';
+        const ratio = outputStats ? (inputStats.size / outputStats.size).toFixed(2) : 'N/A';
+
+        this.logger.info(`File size information - Input: ${inputSizeMB} MB, Output: ${outputSizeMB} MB, Ratio: ${ratio}`);
+      } catch (statError) {
+        this.logger.error('Error getting file stats:', statError);
+      }
+
+      if (result.status.success) {
+        this.logger.info('Conversion successful');
+      } else {
+        const errorReason = this.getFFmpegErrorDescription(result.status.code);
+        this.logger.error(`Conversion failed - Exit code: ${result.status.code}, Possible reason: ${errorReason}`);
+      }
+
+      return result.status.success;
     } catch (error) {
-      this.logger.error('Error converting video:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const stackTrace = error instanceof Error ? error.stack : 'No stack trace available';
+
+      this.logger.error(`Exception during video conversion: ${errorMessage}`);
+      this.logger.error(`Stack trace: ${stackTrace}`);
+      this.logger.error(`Input path: ${inputPath}, Output path: ${outputPath}`);
+
       return false;
     }
+  }
+
+  /**
+   * Get a human-readable description for common FFmpeg error codes
+   * @param code - The exit code from FFmpeg
+   * @returns string - Description of the error
+   */
+  private getFFmpegErrorDescription(code: number): string {
+    const errorDescriptions: Record<number, string> = {
+      1: 'General error (syntax error, invalid parameters, etc.)',
+      2: 'Input file not found or permission denied',
+      127: 'Command not found (FFmpeg may not be installed)',
+      137: 'Process killed (possibly due to memory constraints)',
+      139: 'Segmentation fault',
+      255: 'Other error'
+    };
+
+    return errorDescriptions[code] || `Unknown error code: ${code}`;
   }
 
   /**

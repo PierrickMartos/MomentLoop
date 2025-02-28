@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "start": "deno run --env-file=.env --allow-net --allow-read --allow-run --allow-env --allow-sys server.ts",
+    "start": "LOG_LEVEL=DEBUG deno run --env-file=.env --allow-net --allow-read --allow-run --allow-env --allow-sys server.ts",
     "dev": "deno run --watch --env-file=.env --allow-net --allow-read --allow-run --allow-env --allow-sys server.ts",
     "cache": "deno cache --reload server.ts",
     "test": "deno test --no-check --allow-env --allow-read --allow-net --allow-run",
