@@ -126,9 +126,9 @@ test-push TOKEN:
 test-video URL TOKEN="":
     @echo "Testing video processing with URL: {{URL}}"
     @if [ -z "{{TOKEN}}" ]; then \
-        curl -X POST -H "Content-Type: application/json" -d "{\"videoUrl\":\"{{URL}}\"}" http://localhost:3000/process-video; \
+        curl -X POST -H "Content-Type: application/json" -d "{\"videoName\":\"{{URL}}\"}" http://localhost:3000/process-video; \
     else \
-        curl -X POST -H "Content-Type: application/json" -d "{\"videoUrl\":\"{{URL}}\",\"expoPushToken\":\"{{TOKEN}}\"}" http://localhost:3000/process-video; \
+        curl -X POST -H "Content-Type: application/json" -d "{\"videoName\":\"{{URL}}\",\"expoPushToken\":\"{{TOKEN}}\"}" http://localhost:3000/process-video; \
     fi
     @echo "\nTest request sent"
 

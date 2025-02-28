@@ -1,0 +1,6 @@
+---
+description: Server rules
+globs: server/**/*.ts
+alwaysApply: false
+---
+- Whenever you do changes, test them by running tests: `deno task test`
