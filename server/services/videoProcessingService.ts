@@ -63,6 +63,8 @@ export class VideoProcessingService {
         -b:a 128k \
         "${outputPath}" -y`;
 
+      this.logger.info(`Running command: ${command}`);
+
       const { status } = await exec(command);
 
       if (status.success) {
