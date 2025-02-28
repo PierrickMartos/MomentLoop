@@ -184,7 +184,8 @@ export class VideoProcessingService {
       }
 
       // Generate the URL of the processed video
-      const processedVideoUrl = `${this.serverUrl}/${finalVideoPath}`;
+      const videoName = finalVideoPath.split('/').pop() || '';
+      const processedVideoUrl = `${this.serverUrl}/${videoName}`;
 
       return {
         success: true,
