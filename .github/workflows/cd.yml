@@ -23,17 +23,25 @@ jobs:
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
           if_key_exists: replace
 
+      - name: Create .env file
+        env:
+          SERVER_ENV_FILE: ${{ secrets.SERVER_ENV_FILE }}
+        run: |
+          echo "$SERVER_ENV_FILE" > ./server/.env
+          echo "Created .env file for server deployment"
+
       - name: Deploy to server
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SERVER_DEPLOY_PATH: ${{ secrets.SERVER_DEPLOY_PATH }}
+          SERVER_ENV_FILE: ${{ secrets.SERVER_ENV_FILE }}
         run: |
           # Copy the server directory to the remote server
           rsync -avz --delete ./server/ ${SSH_USER}@${SSH_HOST}:/tmp/momentloop-server/
 
           # Execute the deployment using the server's justfile
-          ssh ${SSH_USER}@${SSH_HOST} "source ~/.zshrc && cd /tmp/momentloop-server && /usr/local/bin/just deploy ${SERVER_DEPLOY_PATH}"
+          ssh ${SSH_USER}@${SSH_HOST} "cd /tmp/momentloop-server && /usr/local/bin/just deploy ${SERVER_DEPLOY_PATH}"
 
           echo "Deployment completed successfully!"
 

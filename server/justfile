@@ -89,6 +89,13 @@ deploy DEPLOY_PATH:
     # Backup current server if it exists
     if [ -d "{{DEPLOY_PATH}}/server" ]; then
       echo "Backing up existing server..."
+
+      # Save the current .env file if it exists
+      if [ -f "{{DEPLOY_PATH}}/server/.env" ]; then
+        echo "Preserving existing .env file..."
+        cp {{DEPLOY_PATH}}/server/.env /tmp/momentloop-server-env-backup
+      fi
+
       mv {{DEPLOY_PATH}}/server {{DEPLOY_PATH}}/server_backup_$(date +%Y%m%d_%H%M%S)
     fi
 
@@ -98,6 +105,20 @@ deploy DEPLOY_PATH:
     # Copy server files
     echo "Copying server files..."
     cp -r . {{DEPLOY_PATH}}/server/
+
+    # Restore the .env file if we backed it up and there isn't a new one
+    if [ -f "/tmp/momentloop-server-env-backup" ] && [ ! -f "{{DEPLOY_PATH}}/server/.env" ]; then
+      echo "Restoring previous .env file as fallback..."
+      cp /tmp/momentloop-server-env-backup {{DEPLOY_PATH}}/server/.env
+      rm /tmp/momentloop-server-env-backup
+    fi
+
+    # Ensure .env file exists
+    if [ ! -f "{{DEPLOY_PATH}}/server/.env" ]; then
+      echo "WARNING: No .env file found. Server may not function correctly."
+    else
+      echo ".env file is in place."
+    fi
 
     # Change to the deployed directory
     cd {{DEPLOY_PATH}}/server
