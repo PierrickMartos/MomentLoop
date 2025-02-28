@@ -21,7 +21,6 @@
   },
   "compilerOptions": {
     "lib": ["deno.window", "deno.ns"],
-    "allowJs": true,
     "strict": true
   },
   "lint": {

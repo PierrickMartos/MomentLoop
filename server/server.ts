@@ -9,7 +9,7 @@ const app = fastify({
 });
 
 // Configuration
-const PORT = 3012;
+const PORT = 3021;
 const HOST = '0.0.0.0';
 const VIDEOS_DIR = Deno.env.get('VIDEOS_DIR') || '/volumes/MomentLoop/';
 const SERVER_URL = Deno.env.get('SERVER_URL');
@@ -27,24 +27,32 @@ app.post('/process-video', async (request, reply) => {
   }
 
   try {
-    // Process the video
-    const processResult = await videoProcessingService.processVideo(videoName);
-
-    // Send push notification if token is provided
-    let notificationSent = false;
-    if (expoPushToken) {
-      notificationSent = await pushNotificationService.sendPushNotification(
-        expoPushToken,
-        processResult.processedVideoUrl,
-        'video'
-      );
-    }
-
-    return {
+    // Return success immediately with a processing status
+    reply.send({
       success: true,
-      videoUrl: processResult.processedVideoUrl,
-      notificationSent: expoPushToken ? notificationSent : null
-    };
+      status: 'processing',
+      message: 'Video processing started',
+      videoName: videoName
+    });
+
+    // Continue processing asynchronously after response is sent
+    setTimeout(async () => {
+      // Process the video
+      const processResult = await videoProcessingService.processVideo(videoName);
+
+      // Send push notification if token is provided
+      if (expoPushToken) {
+        await pushNotificationService.sendPushNotification(
+          expoPushToken,
+          processResult.processedVideoUrl,
+          'video'
+        );
+
+        app.log.info(`Push notification sent for video: ${videoName}`);
+      }
+
+      app.log.info(`Video processing completed for video: ${videoName}`);
+    }, 0);
   } catch (error) {
     app.log.error(error);
     return reply.code(500).send({ error: 'Failed to process video' });

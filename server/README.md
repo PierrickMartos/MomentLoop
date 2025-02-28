@@ -96,7 +96,7 @@ To start the server in development mode with auto-reload:
 just dev
 ```
 
-The server will be available at http://localhost:3012.
+The server will be available at http://localhost:3021.
 
 ### API Endpoints
 
