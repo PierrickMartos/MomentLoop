@@ -5,8 +5,16 @@ import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import { uploadToSynology } from './utils/synologyUploader';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import SettingsScreen from './screens/SettingsScreen';
 
-export default function App() {
+// Create a tab navigator
+const Tab = createBottomTabNavigator();
+
+// Main screen for sending media
+function SendScreen() {
   const [selectedMedia, setSelectedMedia] = useState<{
     uri: string;
     type: 'image' | 'video';
@@ -189,6 +197,35 @@ export default function App() {
         </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
+  );
+}
+
+// Main App component with tab navigation
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName: any = 'home';
+
+            if (route.name === 'Send') {
+              iconName = focused ? 'send' : 'send-outline';
+            } else if (route.name === 'Settings') {
+              iconName = focused ? 'settings' : 'settings-outline';
+            }
+
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: '#007AFF',
+          tabBarInactiveTintColor: 'gray',
+          headerShown: false,
+        })}
+      >
+        <Tab.Screen name="Send" component={SendScreen} />
+        <Tab.Screen name="Settings" component={SettingsScreen} />
+      </Tab.Navigator>
+    </NavigationContainer>
   );
 }
 
