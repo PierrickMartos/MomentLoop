@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "684238227704",
+    "project_id": "moment-loop",
+    "storage_bucket": "moment-loop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:684238227704:android:8fb08d004d7f306a54530d",
+        "android_client_info": {
+          "package_name": "com.momentloop.receiver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNwOWyPCqxQnyxV5FAo5i-7tezgthhiFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
