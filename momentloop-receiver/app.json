@@ -36,7 +36,10 @@
               "NSThirdPartyExceptionMinimumTLSVersion": "TLSv1.2"
             }
           }
-        }
+        },
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -52,7 +55,8 @@
         "VIBRATE"
       ],
       "allowBackup": true,
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -62,7 +66,8 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#e8c79e"
+          "color": "#e8c79e",
+          "sounds": ["./assets/notification.wav"]
         }
       ],
       [

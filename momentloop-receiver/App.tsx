@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
+import { registerForPushNotificationsAsync, setupNotifications } from './utils/pushNotifications';
 
 // Configure notifications to show when app is foregrounded
 Notifications.setNotificationHandler({
@@ -355,7 +356,21 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    registerForPushNotifications();
+    // Initialize push notifications
+    const initializePushNotifications = async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        console.log('Push Notification Token:', token);
+        // Here you can send this token to your backend server
+      }
+
+      const unsubscribe = await setupNotifications();
+      return () => {
+        unsubscribe();
+      };
+    };
+
+    initializePushNotifications();
 
     // Listen for incoming notifications when app is foregrounded
     const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
